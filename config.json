@@ -1,0 +1,8 @@
+{
+    "server": "irc.dev.snoonet.org",
+    "port": 6667,
+    "channel": "#help",
+    "nick": "helpbot",
+    "nsPass": "botpwd",
+    "modes": "@%+"
+}
