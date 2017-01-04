@@ -2,8 +2,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ViewPatterns #-}
 
-module Lib where
+module Lib (startUp) where
 
 import GHC.Generics
 
@@ -28,6 +29,7 @@ data Config = Config
     , channel :: String
     , nick :: String
     , nsPass :: String
+    , umodes :: String
     , ctcp :: String
     , modes :: String
     } deriving (Show, Generic)
@@ -88,6 +90,7 @@ connectIRC js = do
     firstPing h
     identify h js
     hWrite h $ "JOIN " <> channel js
+    hWrite h $ "MODE " <> nick js <> " " <> umodes js
     hWrite h $ "WHO " <> channel js
     mainLoop (MainState {msHandle = h, msConfig = js, msCResp = eSL, msNResp = eSL})
 
@@ -134,20 +137,14 @@ handleInput ms@MainState{..} s = do
        -- When the server finishes sending WHO command data, switch CResp to
        -- the latest who list.
        | cmd == "315" -> mainLoop (ms { msCResp = msNResp, msNResp = eSL })
-       | length (words s) < 4 -> mainLoop ms
        | isVersionResp ms s -> sendNotice ms s
        -- Command didn't match what we were looking for
        | otherwise -> mainLoop ms
 
 -- Function which checks to see if the message is a version response
 isVersionResp :: MainState -> String -> Bool
-isVersionResp ms@MainState{..} s = if c == "NOTICE" && n == nick msConfig && m == ":\001" <> ctcp msConfig
-        then True
-        else False
-        where w = words s
-              c = w !! 1
-              n = w !! 2
-              m = w !! 3
+isVersionResp ms@MainState{..} (words -> _:c:n:m:xs) | c == "NOTICE" && n == nick msConfig && m == ":\001" <> ctcp msConfig = True
+                                                     | otherwise = False
 
 -- Function to handle a 352 response
 handleWho :: MainState -> String -> IO ()
