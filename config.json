@@ -4,5 +4,6 @@
     "channel": "#help",
     "nick": "helpbot",
     "nsPass": "botpwd",
+    "ctcp": "VERSION",
     "modes": "@%+"
 }

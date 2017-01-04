@@ -28,6 +28,7 @@ data Config = Config
     , channel :: String
     , nick :: String
     , nsPass :: String
+    , ctcp :: String
     , modes :: String
     } deriving (Show, Generic)
 
@@ -126,9 +127,6 @@ handleInput ms@MainState{..} s = do
     -- Set n to equal the nick who sent the command
     let n = tail $ takeWhile (/= '!') (words s !! 0)
     let w = words s
-    v <- if (length w) > 4
-        then isVersionResp ms s
-        else (return False)
     if | "PING" `isPrefixOf` s -> handlePing ms s
        | n == nick msConfig -> mainLoop ms
        | cmd == "JOIN" -> handleJoin ms s
@@ -137,20 +135,19 @@ handleInput ms@MainState{..} s = do
        -- the latest who list.
        | cmd == "315" -> mainLoop (ms { msCResp = msNResp, msNResp = eSL })
        | length (words s) < 4 -> mainLoop ms
-       | v -> sendNotice ms s
+       | isVersionResp ms s -> sendNotice ms s
        -- Command didn't match what we were looking for
        | otherwise -> mainLoop ms
 
 -- Function which checks to see if the message is a version response
-isVersionResp :: MainState -> String -> IO Bool
-isVersionResp ms@MainState{..} s = do
-    let w = words s
-    let c = w !! 1
-    let n = w !! 2
-    let m = w !! 3
-    if c == "NOTICE" && n == nick msConfig && m == ":\001VERSION"
-        then return True
-        else return False
+isVersionResp :: MainState -> String -> Bool
+isVersionResp ms@MainState{..} s = if c == "NOTICE" && n == nick msConfig && m == ":\001" <> ctcp msConfig
+        then True
+        else False
+        where w = words s
+              c = w !! 1
+              n = w !! 2
+              m = w !! 3
 
 -- Function to handle a 352 response
 handleWho :: MainState -> String -> IO ()
@@ -174,7 +171,7 @@ handleJoin :: MainState -> String -> IO ()
 handleJoin ms@MainState{..} s = do
     let n = tail $ takeWhile (/= '!') (words s !! 0)
     -- Send the CTCP VERSION
-    hWrite msHandle $ "PRIVMSG " <> n <> " :\001VERSION\001"
+    hWrite msHandle $ "PRIVMSG " <> n <> " :\001" <> ctcp msConfig <> "\001"
     mainLoop ms
 
 -- Notice people with channel modes about a CTCP response
@@ -183,5 +180,5 @@ sendNotice ms@MainState{..} s = do
     let n = tail $ takeWhile (/= '!') (words s !! 0)
     let (_, c) = splitAt 4 $ words s
     -- Send a message to everyone in channel with modes
-    mapM_ (\x -> hWrite msHandle ("NOTICE " <> x <> " :" <> n <> " CTCP Version responded: " <> (unwords c))) msCResp
+    mapM_ (\x -> hWrite msHandle ("NOTICE " <> x <> " :" <> n <> " CTCP " <> ctcp msConfig <> " responded: " <> (unwords c))) msCResp
     mainLoop ms
