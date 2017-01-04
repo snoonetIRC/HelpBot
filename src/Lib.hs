@@ -107,12 +107,17 @@ identify h js = do
 -- The Main Loop that the program always returns to.
 mainLoop :: MainState  -> IO ()
 mainLoop ms@MainState{..} = do
-    -- Fetch a line from the server
-    s <- hRead msHandle
-    -- If the line is shorter than 2 words, fetch another, otherwise handle it.
-    if length (words s) < 2
-    then mainLoop ms
-    else handleInput ms s
+    -- Check to see if still connected to the server
+    eof <- hIsEOF msHandle
+    if eof
+        then connectIRC msConfig
+        else do
+            -- Fetch a line from the server
+            s <- hRead msHandle
+            -- If the line is shorter than 2 words, fetch another, otherwise handle it.
+            if length (words s) < 2
+            then mainLoop ms
+            else handleInput ms s
 
 handleInput :: MainState -> String -> IO ()
 handleInput ms@MainState{..} s = do
