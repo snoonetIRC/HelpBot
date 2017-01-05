@@ -5,6 +5,5 @@
     "nick": "helpbot",
     "nsPass": "botpwd",
     "umodes": "+B-R",
-    "ctcp": "VERSION",
-    "modes": "@%+"
+    "ctcp": "VERSION"
 }

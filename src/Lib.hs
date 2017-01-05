@@ -31,7 +31,6 @@ data Config = Config
     , nsPass :: String
     , umodes :: String
     , ctcp :: String
-    , modes :: String
     } deriving (Show, Generic)
 
 instance FromJSON Config
@@ -40,8 +39,6 @@ instance FromJSON Config
 data MainState = MainState
     { msHandle :: Handle
     , msConfig :: Config
-    , msCResp :: [String]
-    , msNResp :: [String]
     }
     
 -- Empty String List
@@ -92,7 +89,7 @@ connectIRC js = do
     hWrite h $ "JOIN " <> channel js
     hWrite h $ "MODE " <> nick js <> " " <> umodes js
     hWrite h $ "WHO " <> channel js
-    mainLoop (MainState {msHandle = h, msConfig = js, msCResp = eSL, msNResp = eSL})
+    mainLoop (MainState { msHandle = h, msConfig = js })
 
 -- Function which waits for the first ping
 firstPing :: Handle -> IO ()
@@ -133,27 +130,16 @@ handleInput ms@MainState{..} s = do
     if | "PING" `isPrefixOf` s -> handlePing ms s
        | n == nick msConfig -> mainLoop ms
        | cmd == "JOIN" -> handleJoin ms s
-       | cmd == "352" -> handleWho ms s
-       -- When the server finishes sending WHO command data, switch CResp to
-       -- the latest who list.
-       | cmd == "315" -> mainLoop (ms { msCResp = msNResp, msNResp = eSL })
        | isVersionResp ms s -> sendNotice ms s
        -- Command didn't match what we were looking for
        | otherwise -> mainLoop ms
 
 -- Function which checks to see if the message is a version response
 isVersionResp :: MainState -> String -> Bool
-isVersionResp ms@MainState{..} (words -> _:c:n:m:xs) | c == "NOTICE" && n == nick msConfig && m == ":\001" <> ctcp msConfig = True
-                                                     | otherwise = False
-
--- Function to handle a 352 response
-handleWho :: MainState -> String -> IO ()
-handleWho ms@MainState{..} s = do
-    let n = words s !! 7
-    let m = words s !! 8
-    if any (\x -> x `elem` m) (modes msConfig)
-        then mainLoop (ms { msNResp = n:msNResp })
-        else mainLoop ms
+isVersionResp ms@MainState{..} (words -> _:c:n:m:xs) 
+    | c == "NOTICE" && n == nick msConfig && m == ":\001" <> ctcp msConfig = True
+    | otherwise = False
+isVersionResp ms@MainState{..} s = False
 
 -- Function to handle a PING
 handlePing :: MainState -> String -> IO ()
@@ -177,5 +163,5 @@ sendNotice ms@MainState{..} s = do
     let n = tail $ takeWhile (/= '!') (words s !! 0)
     let (_, c) = splitAt 4 $ words s
     -- Send a message to everyone in channel with modes
-    mapM_ (\x -> hWrite msHandle ("NOTICE " <> x <> " :" <> n <> " CTCP " <> ctcp msConfig <> " responded: " <> (unwords c))) msCResp
+    hWrite msHandle ("NOTICE +" <> channel msConfig <> " :" <> n <> " CTCP " <> ctcp msConfig <> " responded: " <> (unwords c))
     mainLoop ms
