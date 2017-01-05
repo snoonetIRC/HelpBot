@@ -4,6 +4,6 @@
     "channel": "#help",
     "nick": "helpbot",
     "nsPass": "botpwd",
-    "umodes": "+B-R",
+    "umodes": "+Bc-R",
     "ctcp": "VERSION"
 }

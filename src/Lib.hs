@@ -88,7 +88,6 @@ connectIRC js = do
     identify h js
     hWrite h $ "JOIN " <> channel js
     hWrite h $ "MODE " <> nick js <> " " <> umodes js
-    hWrite h $ "WHO " <> channel js
     mainLoop (MainState { msHandle = h, msConfig = js })
 
 -- Function which waits for the first ping
@@ -145,8 +144,6 @@ isVersionResp ms@MainState{..} s = False
 handlePing :: MainState -> String -> IO ()
 handlePing ms@MainState{..} s = do
     hWrite msHandle $ "PONG " <> words s !! 1
-    -- Send a WHO when we get pinged to keep the nick list up to date
-    hWrite msHandle $ "WHO " <> channel msConfig
     mainLoop ms
 
 -- Function to handle when a client joins the channel
